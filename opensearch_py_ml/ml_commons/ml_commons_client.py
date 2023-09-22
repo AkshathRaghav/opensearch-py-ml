@@ -202,6 +202,10 @@ class MLCommonClient:
 
         return model_id
 
+
+    def register_pretrained_model(self): 
+        pass
+
     def register_pretrained_model(
         self,
         model_name: str,
