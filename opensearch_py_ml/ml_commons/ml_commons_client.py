@@ -10,7 +10,7 @@ import json
 import time
 from typing import Any, List, Union
 
-from deprecated.sphinx import deprecated
+# from deprecated.sphinx import deprecated
 from opensearchpy import OpenSearch
 
 from opensearch_py_ml.ml_commons.ml_common_utils import (
