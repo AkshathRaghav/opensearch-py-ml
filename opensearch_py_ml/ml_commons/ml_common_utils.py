@@ -24,7 +24,11 @@ EMBEDDING_DIMENSION = "embedding_dimension"
 FRAMEWORK_TYPE = "framework_type"
 MODEL_CONTENT_HASH_VALUE = "model_content_hash_value"
 MODEL_GROUP_ID = "model_group_id"
-
+MODEL_GROUP_NAME = "name"
+MODEL_GROUP_DESCRIPTION = "description"
+MODEL_GROUP_ACCESS_MODE = "access_mode"
+MODEL_GROUP_BACKEND_ROLES = "backend_roles"
+MODEL_GROUP_ADD_ALL_BACKEND_ROLES = "add_all_backend_roles"
 
 def _generate_model_content_hash_value(model_file_path: str) -> str:
     """

@@ -20,7 +20,13 @@ from opensearch_py_ml.ml_commons.ml_common_utils import (
     MODEL_NAME_FIELD,
     MODEL_VERSION_FIELD,
     TIMEOUT,
+    MODEL_GROUP_NAME,
+    MODEL_GROUP_DESCRIPTION,
+    MODEL_GROUP_ACCESS_MODE,
+    MODEL_GROUP_BACKEND_ROLES,
+    MODEL_GROUP_ADD_ALL_BACKEND_ROLES
 )
+
 from opensearch_py_ml.ml_commons.model_execute import ModelExecute
 from opensearch_py_ml.ml_commons.model_uploader import ModelUploader
 
@@ -203,8 +209,93 @@ class MLCommonClient:
         return model_id
 
 
-    def register_pretrained_model(self): 
-        pass
+    def register_model_group(
+        self,
+        group_name: str,
+        group_description: str,
+        group_access_mode: str = 'private',
+        group_backend_roles: list = [],
+        group_add_all_backend_roles: str = 'false',
+    ):
+        """
+        This method registers a model group in the opensearch cluster using ml-common plugin's api.
+        First, this method creates a model_group_id to store the info about the group and allows users to register models with it. 
+        Refer to https://opensearch.org/docs/latest/ml-commons-plugin/model-access-control/#request-fields.
+
+        :param group_name: Name of the group to be registered
+        :type group_name: string
+        :param group_description: Description of the group
+        :type group_description: string
+        :param group_access_mode:  "public" OR "private" OR "restricted"
+        :type group_access_mode: string
+        :param group_backend_roles: Backend roles [OPTIONAL]
+        :type group_backend_roles: list
+        :param group_add_all_backend_roles: If true, all backend roles of the model owner are added to the model group.
+        :type group_add_all_backend_roles: str
+        """
+        if group_add_all_backend_roles.lower() == 'true': 
+            group_add_all_backend_roles = True
+        else: 
+            group_add_all_backend_roles = False
+            
+        group_config_json = {
+            MODEL_GROUP_NAME: group_name
+        }
+
+        if group_description: 
+            group_config_json[MODEL_GROUP_DESCRIPTION] = group_description
+
+        if group_access_mode not in ['public', 'private', 'restricted']: 
+            raise Exception("'access_mode' has to be one of the following: 'public', 'private', 'restricted'")
+        elif group_access_mode == 'restriced': 
+            _temp = (len(group_backend_roles) + int(group_add_all_backend_roles)) 
+            if _temp == 0 or (_temp > 1 and group_add_all_backend_roles): 
+                raise Exception("'Specify only one of the following: 'backend_roles' or 'add_all_backend_roles'")
+
+        group_config_json[MODEL_GROUP_ACCESS_MODE] = group_access_mode
+        
+        if group_backend_roles: 
+            group_config_json[MODEL_GROUP_BACKEND_ROLES] = group_backend_roles
+        else: 
+            group_config_json[MODEL_GROUP_ADD_ALL_BACKEND_ROLES] = group_add_all_backend_roles
+
+        response = self._send_model_group_info(group_config_json)
+
+        print(response)
+
+        return response
+
+    def _send_model_group_info(self, group_meta_json: dict):
+        """
+        This method sends the model group's registeration info to ML Commons' register api
+        Refer to the following: 
+            https://opensearch.org/docs/latest/ml-commons-plugin/model-access-control/#example-request
+            https://opensearch.org/docs/latest/ml-commons-plugin/model-access-control/#example-response
+
+        :type group_meta_json: dict
+        :return: model group ID and status of registeration. 
+        :rtype: dict
+        """
+        output: Union[bool, Any] = self._client.transport.perform_request(
+            method="POST",
+            url=f"{ML_BASE_URI}/model_groups/_register",
+            body=group_meta_json,
+        )
+        end = time.time() + TIMEOUT  # timeout seconds
+        task_flag = False
+        while not task_flag or time.time() < end:
+            time.sleep(1)
+            status = self._get_task_info(output["task_id"])
+            if status["status"] != "CREATED":
+                task_flag = True
+        # TODO: need to add the test case later for this line
+        if not task_flag:
+            raise TimeoutError("Group registration timed out!")
+        if status["status"] == "FAILED":
+            raise Exception(status["error"])
+        print("Model Group was registered successfully. Model Group Id: ", status["model_group_id"])
+        return status
+
 
     def register_pretrained_model(
         self,
